@@ -9,7 +9,7 @@ To run this project, you need to import the JamAI project tables:
    Download the file [`jamaibase_project_tables.parquet`](/jamaibase_project_tables.parquet) from the repository.
 
 2. **Import the tables into JamAI**  
-   - Log in to your [JamAI](https://www.jamai.ai/) account.
+   - Log in to your [JamAI](https://www.jamaibase.com/) account.
    - Navigate to your project dashboard.
    - Go to **Project → Import Project**.
    - Upload the `jamaibase_project_tables.parquet` file.
