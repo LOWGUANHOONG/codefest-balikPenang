@@ -10,6 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "contractChecker"))
 from contractChecker.pdf_parser import extract_text_from_pdf
 from contractChecker.law_checker import check_full_contract
 from contractChecker.generate_new_contract import generate_corrected_contract
+from contractChecker.financial_calculator import calculate_liability
 
 # --- PDF Generation Imports ---
 from reportlab.lib.pagesizes import A4
@@ -26,7 +27,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .stApp {
-        background-color: #f8f9fa;
+        background-color: inherit;
         font-family: 'Helvetica Neue', sans-serif;
     }
     
@@ -146,6 +147,78 @@ def create_pdf_from_markdown(markdown_text):
     doc.build(story)
     buffer.seek(0)
     return buffer
+
+# --- Helper: Financial Dashboard Renderer (Optimized Visuals) ---
+def render_financial_dashboard(contract_risk, employee_data):
+    if not contract_risk and not employee_data:
+        return
+
+    st.markdown("---")
+    st.subheader("💰 Financial Liability Analysis")
+
+    # 1. Employee Profile (Compact View)
+    if employee_data:
+        with st.container():
+            st.markdown("##### 👤 Extracted Employee Profile")
+            # Use columns with captions for a tighter look
+            c1, c2, c3, c4 = st.columns(4)
+            
+            # Extract Data
+            name = employee_data.get("employee_name", "Unknown")
+            pos = employee_data.get("position_title", "-")
+            start = employee_data.get("start_date") or "-"
+            
+            salary = employee_data.get("basic_salary_monthly")
+            try:
+                sal_str = f"RM {float(salary):,.2f}" if salary else "RM 0.00"
+            except:
+                sal_str = str(salary)
+
+            # Render Small Cells
+            with c1:
+                st.caption("Name")
+                st.markdown(f"**{name}**")
+            with c2:
+                st.caption("Position")
+                st.markdown(f"**{pos}**")
+            with c3:
+                st.caption("Base Salary")
+                st.markdown(f"**{sal_str}**")
+            with c4:
+                st.caption("Start Date")
+                st.markdown(f"**{start}**")
+
+    # 2. Top Level Liability Metrics
+    if contract_risk:
+        st.markdown("") # Spacer
+        try:
+            likely_total = float(contract_risk.get("total_likely_liability", 0.0))
+            worst_total = float(contract_risk.get("total_worst_case_liability", 0.0))
+        except:
+            likely_total, worst_total = 0.0, 0.0
+
+        k1, k2 = st.columns(2)
+        k1.metric("📉 Likely Liability (Compound)", f"RM {likely_total:,.2f}", "Settlement Risk", delta_color="inverse")
+        k2.metric("💥 Worst Case (Court Max)", f"RM {worst_total:,.2f}", "Max Penalty", delta_color="inverse")
+
+        # 3. Detailed Breakdown List
+        breakdown_list = contract_risk.get("breakdown", [])
+        if breakdown_list:
+            with st.expander("💸 View Liability Breakdown", expanded=True):
+                for item in breakdown_list:
+                    # Parse Item format: "⚠️ Type: RM X... | ⛓️ Jail: Z"
+                    parts = item.split("|")
+                    main_text = parts[0].strip()
+                    jail_text = parts[1].strip() if len(parts) > 1 else ""
+
+                    col_text, col_jail = st.columns([0.8, 0.2])
+                    col_text.markdown(f"**{main_text}**")
+                    
+                    if jail_text and "None" not in jail_text:
+                        col_jail.error(jail_text.replace("⛓️", "").strip())
+                    elif jail_text:
+                        col_jail.caption(jail_text)
+
 
 # --- UI Translations ---
 TRANSLATIONS = {
@@ -283,6 +356,15 @@ if uploaded_file is not None:
         m2.metric(get_text('issues_found'), len(illegal_clauses))
         m3.metric(get_text('total_violations'), total_violations)
         
+        # --- Financial Impact Dashboard ---
+        contract_risk_data = report_data.get("contract_risk") or {}
+        employee_facts = report_data.get("employee_data") or {}
+        liability_summary = {}
+        if contract_risk_data:
+            liability_summary = calculate_liability(contract_risk_data, employee_facts)
+        if liability_summary or employee_facts:
+            render_financial_dashboard(liability_summary, employee_facts)
+
         if not illegal_clauses:
             st.success(get_text('no_violations'))
         else:
