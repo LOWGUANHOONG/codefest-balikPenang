@@ -26,18 +26,23 @@ cd codefest-balikPenang
 python3 -m venv venv
 source venv/bin/activate
 ```
+
 #### Windows (PowerShell)
 ```
 python -m venv venv
 venv\Scripts\Activate.ps1
 ```
 
-### 4. Install dependencies
+### 4. Open IDE
+- Click **Open Folder** and select folder 'codefest-balikPenang'
+
+
+### 5. Install dependencies
 ``` 
 pip install -r requirements.txt 
 ```
 
-### 5. Update your API key and Project ID
+### 6. Update your API key and Project ID
 
 #### In `.streamlit/secrets.toml` and `config.py` :
 ```
@@ -45,9 +50,13 @@ API_KEY = "YOUR_API_KEY"        # Replace with your own JamAI Base PAT
 PROJECT_ID = "YOUR_PROJECT_ID"  # Replace with your actual Project ID
 ```
 
-### 6. Run the application
+### 7. Run the application
 Make sure you are in the app directory before running the command.
 ```
 cd app
-streamlit run "Labour Law QnA"
+streamlit run "Labour Law QnA.py"
 ```
+
+### Done! A browser will be open and you can use our AI Assistant now 🎉
+
+Please ensure that your application theme is set to **Light** mode.
