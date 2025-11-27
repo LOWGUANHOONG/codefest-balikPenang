@@ -57,4 +57,4 @@ cd app
 streamlit run "Labour Law QnA.py"
 ```
 
-### Done! A browser will be open and you can use our AI Assistant now.
+### Done! A browser will be open and you can use our AI Assistant now 🎉
