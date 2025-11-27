@@ -4,7 +4,6 @@ import re
 from io import BytesIO
 import streamlit as st
 
-# --- Custom Imports ---
 # Ensure Python can find your subfolder
 sys.path.append(os.path.join(os.path.dirname(__file__), "contractChecker"))
 
@@ -31,6 +30,7 @@ st.markdown("""
         background-color: inherit;
         font-family: 'Helvetica Neue', sans-serif;
     }
+    
     
     [data-testid="stSidebarNav"]::before {
         content: "Malaysian Labour Law Assistant";
@@ -77,15 +77,7 @@ st.markdown("""
 
 # --- Sidebar Setup ---
 with st.sidebar:
-    # 1. We must place SOMETHING here, but we hide it with CSS to clear the space.
-    # The actual title is injected using the CSS ::before pseudo-element above.
     st.empty() 
-    
-    # NOTE: The navigation links are AUTO-GENERATED and now appear immediately
-    # after the empty space, but the CSS places the title above them.
-
-    
-    # 3. Place the Legal Disclaimer at the bottom
     st.markdown("""
     <div class="disclaimer">
         ⚠️ DISCLAIMER: This tool is for informational purposes only and does not constitute legal advice. 
@@ -94,7 +86,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 
-# --- Helper: Language Detection (Local Logic for UI) ---
+
 def local_detect_language(text):
     """
     Simple detection to switch UI language immediately.
@@ -106,7 +98,6 @@ def local_detect_language(text):
     malay_count = sum(1 for word in malay_keywords if word in text_lower[:1000])
     return 'ms' if malay_count >= 3 else 'en'
 
-# --- Helper: PDF Generator (Robust) ---
 def create_pdf_from_markdown(markdown_text):
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -304,10 +295,6 @@ def get_text(key):
     """Retrieve translation for the current language."""
     return TRANSLATIONS[st.session_state.detected_language].get(key, key)
 
-# ========================================================
-# MAIN APPLICATION LOGIC
-# ========================================================
-
 st.title(get_text('title'))
 st.markdown(get_text('subtitle'))
 
@@ -315,7 +302,6 @@ uploaded_file = st.file_uploader(get_text('upload_label'), type=['pdf'])
 
 if uploaded_file is not None:
     # --- 1. AUTO-PROCESSING ON UPLOAD ---
-    # Only re-process if it's a NEW file
     if uploaded_file.file_id != st.session_state.file_key:
         st.session_state.file_key = uploaded_file.file_id
         st.session_state.checker_output = None
@@ -323,7 +309,6 @@ if uploaded_file is not None:
         
         # Extract Text
         raw_text = extract_text_from_pdf(uploaded_file)
-        # Clean Text (remove invisible chars)
         raw_text = re.sub(r'[\u200b\u200c\u200d\uFEFF]', '', raw_text)
         st.session_state.current_contract_text = raw_text
         
@@ -352,16 +337,13 @@ if uploaded_file is not None:
     if st.session_state.checker_output:
         st.markdown("---")
         st.subheader(get_text('report_title'))
-        
         report_data = st.session_state.checker_output
         
-        # Safe extraction of data (Handles Dictionary structure)
         if isinstance(report_data, dict):
             summary = report_data.get("summary", {})
             total_clauses = summary.get("total_clauses_found", 0)
             illegal_clauses = report_data.get("violations", [])
         else:
-            # Fallback if AI returned a List (Old format)
             total_clauses = len(report_data)
             illegal_clauses = report_data
             
@@ -398,23 +380,19 @@ if uploaded_file is not None:
                     
                     illegal_details = clause.get("illegal", {})
                     for category, details in illegal_details.items():
-
-                    
-
-                        # Translate Category (e.g., 'salary' -> 'Gaji')
                         cat_label = TRANSLATIONS[st.session_state.detected_language].get(category, category.title())
+                        st.markdown(f"### {cat_label}")
                         
-                        #st.markdown(f"### {cat_label}")
+                        if not isinstance(details, dict):
+                            st.info(details if isinstance(details, str) else str(details))
+                            continue
                         
-                        # Status
                         status_key = f"status_{details.get('status', 'missing')}"
                         st.markdown(f"**{get_text('status_label')}:** {get_text(status_key)}")
                         
-                        # Reason
                         if details.get('reason'):
                             st.markdown(f"**{get_text('reason_label')}:** {details['reason']}")
                             
-                        # Correction
                         if details.get('corrected'):
                             st.success(f"**{get_text('corrected_label')}:** {details['corrected']}")
 
