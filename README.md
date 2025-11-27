@@ -6,7 +6,7 @@
 To run this project, you need to import the JamAI project tables:
 
 1. **Download the project tables**  
-   Download the file [`jamaibase_project_tables.parquet`](path/to/jamaibase_project_tables.parquet) from the repository.
+   Download the file [`jamaibase_project_tables.parquet`](codefest-balikPenang/jamaibase_project_tables.parquet) from the repository.
 
 2. **Import the tables into JamAI**  
    - Log in to your [JamAI](https://www.jamai.ai/) account.
