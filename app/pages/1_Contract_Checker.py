@@ -1,0 +1,399 @@
+import sys
+import os
+import re
+from io import BytesIO
+import streamlit as st
+
+# --- Custom Imports ---
+# Ensure Python can find your subfolder
+sys.path.append(os.path.join(os.path.dirname(__file__), "contractChecker"))
+
+from contractChecker.pdf_parser import extract_text_from_pdf
+from contractChecker.law_checker import check_full_contract
+from contractChecker.generate_new_contract import generate_corrected_contract
+
+# --- PDF Generation Imports ---
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.enums import TA_JUSTIFY
+from reportlab.lib import colors
+
+# --- Page Configuration ---
+st.set_page_config(
+    page_title="Malaysian Labour Law Assistant",
+    initial_sidebar_state="expanded", layout="wide")
+
+st.markdown("""
+<style>
+    /* Global Styles */
+    .stApp {
+        background-color: #f8f9fa;
+        font-family: 'Helvetica Neue', sans-serif;
+    }
+    
+    
+    /* ------------------------------------------------------------- */
+    /* FIX: Custom Title Insertion & Repositioning */
+    /* ------------------------------------------------------------- */
+    
+    /* 1. Add the custom title via CSS content (Updated Content) */
+    [data-testid="stSidebarNav"]::before {
+        content: "Malaysian Labour Law Assistant";
+        font-size: 1.5em; /* Matches h1 size */
+        text-align: center;
+        display: block;
+        padding: 15px 0 10px 0;
+        font-weight: bold;
+    }
+    
+    /* 2. Add a separator line after the title */
+    [data-testid="stSidebarNav"]::after {
+        content: "";
+        display: block;
+        border-bottom: 1px solid #34495e; 
+        margin-bottom: 10px;
+    }
+    
+    /* 3. Hide the automatically generated title that we don't want */
+    [data-testid="stSidebarNav"] > div:first-child > div:first-child {
+        display: none;
+    }
+
+    /* 4. FIX: Use visibility: hidden instead of collapsing height to fix UI disappearance */
+    /* This keeps the necessary container space but hides the placeholder content */
+    [data-testid="stSidebar"] > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) {
+        visibility: hidden;
+        height: 0px; /* Still collapse height just in case, but rely on visibility */
+    }
+
+    /* High-Contrast Disclaimer Styling */
+    .disclaimer {
+        background-color: #FFEE8C;
+        padding: 15px;
+        border-radius: 8px;
+        font-size: 0.9em;
+        color: #2c3e50;
+        border-left: 5px solid #2c3e50;
+        margin-top: 20px;
+    }
+    .disclaimer p, .disclaimer strong {
+        font-weight: normal;
+        color: #003747;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- Sidebar Setup (Simplified and Cleaned) ---
+with st.sidebar:
+    # 1. We must place SOMETHING here, but we hide it with CSS to clear the space.
+    # The actual title is injected using the CSS ::before pseudo-element above.
+    st.empty() 
+    
+    # NOTE: The navigation links are AUTO-GENERATED and now appear immediately
+    # after the empty space, but the CSS places the title above them.
+
+    
+    # 3. Place the Legal Disclaimer at the bottom
+    st.markdown("""
+    <div class="disclaimer">
+        ⚠️ DISCLAIMER: This tool is for informational purposes only and does not constitute legal advice. 
+        Always consult with a qualified legal professional for advice regarding specific legal issues.
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# --- Helper: Language Detection (Local Logic for UI) ---
+def local_detect_language(text):
+    """
+    Simple detection to switch UI language immediately.
+    """
+    malay_keywords = ['gaji', 'pekerja', 'majikan', 'cuti', 'kerja', 'bulan', 
+                      'hari', 'kontrak', 'penamatan', 'wang', 'bayaran', 'tahun']
+    text_lower = text.lower()
+    # Check first 1000 chars is enough for UI switching
+    malay_count = sum(1 for word in malay_keywords if word in text_lower[:1000])
+    return 'ms' if malay_count >= 3 else 'en'
+
+# --- Helper: PDF Generator (Robust) ---
+def create_pdf_from_markdown(markdown_text):
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4,
+        rightMargin=72, leftMargin=72, 
+        topMargin=72, bottomMargin=18
+    )
+    styles = getSampleStyleSheet()
+    
+    # Custom Styles
+    header_style = ParagraphStyle(
+        'CustomHeader', parent=styles['Heading2'],
+        fontSize=14, spaceAfter=12, textColor=colors.black, fontName='Helvetica-Bold'
+    )
+    normal_style = ParagraphStyle(
+        'CustomNormal', parent=styles['Normal'],
+        fontSize=11, leading=14, spaceAfter=6, alignment=TA_JUSTIFY
+    )
+
+    story = []
+    lines = markdown_text.split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            story.append(Spacer(1, 6))
+            continue
+        
+        # Detect Markdown Headers (##)
+        if line.startswith('##'):
+            clean_line = line.replace('#', '').strip()
+            story.append(Paragraph(clean_line, header_style))
+        
+        # Detect Bullets
+        elif line.startswith('- ') or line.startswith('* '):
+            clean_line = line[2:].strip()
+            # Convert bold syntax **text** to HTML <b>text</b>
+            formatted_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', clean_line)
+            story.append(Paragraph(f"•  {formatted_line}", normal_style))
+        
+        # Standard Text
+        else:
+            formatted_line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
+            story.append(Paragraph(formatted_line, normal_style))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+# --- UI Translations ---
+TRANSLATIONS = {
+    'en': {
+        'title': '🏢 Malaysian Labour Law Assistant',
+        'subtitle': '*Validate employment contracts against Employment Act 1955 & Industrial Relations Act 1967*',
+        'upload_label': '📎 Upload Employment Contract (PDF)',
+        'file_uploaded': '✅ File uploaded:',
+        'detected': 'Detected Language: 🇬🇧 English',
+        'validate_btn': '🔬 Validate Contract',
+        'generate_btn': '📝 Generate Corrected Contract',
+        'download_btn': '📥 Download Corrected Contract (PDF)',
+        'processing_val': '⏳ Analyzing contract clauses...',
+        'processing_gen': '⏳ AI Drafter is rewriting the contract...',
+        'processing_pdf': '⏳ Creating formatted PDF...',
+        'report_title': '📊 Validation Report',
+        'no_violations': '✅ No violations detected! This contract complies with Malaysian labour law.',
+        'violations_found': '⚠️ Violations Found',
+        'total_clauses': 'Total Clauses',
+        'issues_found': 'Clauses with Issues',
+        'total_violations': 'Specific Violations',
+        'preview_title': '📄 Corrected Contract Preview',
+        'confirm_pdf': '✅ Confirm and Generate PDF',
+        'success_pdf': '✅ Corrected Contract PDF Generated Successfully!',
+        'original_clause': 'Original Clause:',
+        'violation_details': 'Violations:',
+        'status_label': 'Status',
+        'reason_label': 'Reason',
+        'corrected_label': 'Correction',
+        'status_legal': '✅ Legal',
+        'status_illegal': '❌ Illegal',
+        'status_missing': '⚪ Not Specified'
+    },
+    'ms': {
+        'title': '🏢 Pembantu Undang-Undang Buruh Malaysia',
+        'subtitle': '*Sahkan kontrak pekerjaan berdasarkan Akta Kerja 1955 & Akta Perhubungan Perusahaan 1967*',
+        'upload_label': '📎 Muat Naik Kontrak Pekerjaan (PDF)',
+        'file_uploaded': '✅ Fail dimuat naik:',
+        'detected': 'Bahasa Dikesan: 🇲🇾 Bahasa Melayu',
+        'validate_btn': '🔬 Sahkan Kontrak',
+        'generate_btn': '📝 Jana Kontrak Baru',
+        'download_btn': '📥 Muat Turun Kontrak (PDF)',
+        'processing_val': '⏳ Sedang menganalisis klausa kontrak...',
+        'processing_gen': '⏳ AI sedang menulis semula kontrak...',
+        'processing_pdf': '⏳ Sedang menjana PDF...',
+        'report_title': '📊 Laporan Pengesahan',
+        'no_violations': '✅ Tiada pelanggaran dikesan! Kontrak ini mematuhi undang-undang.',
+        'violations_found': '⚠️ Pelanggaran Ditemui',
+        'total_clauses': 'Jumlah Klausa',
+        'issues_found': 'Klausa Bermasalah',
+        'total_violations': 'Jumlah Isu',
+        'preview_title': '📄 Pratonton Kontrak Baru',
+        'confirm_pdf': '✅ Sahkan dan Jana PDF',
+        'success_pdf': '✅ PDF Kontrak Berjaya Dijana!',
+        'original_clause': 'Klausa Asal:',
+        'violation_details': 'Butiran Pelanggaran:',
+        'status_label': 'Status',
+        'reason_label': 'Sebab',
+        'corrected_label': 'Pembetulan',
+        'status_legal': '✅ Sah',
+        'status_illegal': '❌ Tidak Sah',
+        'status_missing': '⚪ Tidak Dinyatakan'
+    }
+}
+
+# --- Session State Management ---
+if "checker_output" not in st.session_state: st.session_state.checker_output = None
+if "full_corrected_text" not in st.session_state: st.session_state.full_corrected_text = None
+if "detected_language" not in st.session_state: st.session_state.detected_language = 'en'
+if "current_contract_text" not in st.session_state: st.session_state.current_contract_text = ""
+if "file_key" not in st.session_state: st.session_state.file_key = ""
+
+def get_text(key):
+    """Retrieve translation for the current language."""
+    return TRANSLATIONS[st.session_state.detected_language].get(key, key)
+
+# ========================================================
+# MAIN APPLICATION LOGIC
+# ========================================================
+
+st.title(get_text('title'))
+st.markdown(get_text('subtitle'))
+
+uploaded_file = st.file_uploader(get_text('upload_label'), type=['pdf'])
+
+if uploaded_file is not None:
+    # --- 1. AUTO-PROCESSING ON UPLOAD ---
+    # Only re-process if it's a NEW file
+    if uploaded_file.file_id != st.session_state.file_key:
+        st.session_state.file_key = uploaded_file.file_id
+        st.session_state.checker_output = None
+        st.session_state.full_corrected_text = None
+        
+        # Extract Text
+        raw_text = extract_text_from_pdf(uploaded_file)
+        # Clean Text (remove invisible chars)
+        raw_text = re.sub(r'[\u200b\u200c\u200d\uFEFF]', '', raw_text)
+        st.session_state.current_contract_text = raw_text
+        
+        # Detect Language & Update State
+        st.session_state.detected_language = local_detect_language(raw_text)
+        
+        # Rerun immediately to switch the UI language
+        st.rerun()
+
+    # Display Info
+    st.success(f"{get_text('file_uploaded')} **{uploaded_file.name}**")
+    st.info(get_text('detected'))
+    
+    col1, col2 = st.columns([1, 1])
+    
+    # --- 2. VALIDATE BUTTON ---
+    with col1:
+        if st.button(get_text('validate_btn'), type="primary", use_container_width=True):
+            with st.spinner(get_text('processing_val')):
+                # Call JamAI (Uses text from session state - No re-extraction needed)
+                st.session_state.checker_output = check_full_contract(
+                    st.session_state.current_contract_text
+                )
+
+    # --- 3. REPORT DISPLAY ---
+    if st.session_state.checker_output:
+        st.markdown("---")
+        st.subheader(get_text('report_title'))
+        
+        report_data = st.session_state.checker_output
+        
+        # Safe extraction of data (Handles Dictionary structure)
+        if isinstance(report_data, dict):
+            summary = report_data.get("summary", {})
+            total_clauses = summary.get("total_clauses_found", 0)
+            illegal_clauses = report_data.get("violations", [])
+        else:
+            # Fallback if AI returned a List (Old format)
+            total_clauses = len(report_data)
+            illegal_clauses = report_data
+            
+        # Count specific violation points
+        total_violations = sum(len(c.get("illegal", {})) for c in illegal_clauses)
+        
+        # Metrics Row
+        m1, m2, m3 = st.columns(3)
+        m1.metric(get_text('total_clauses'), total_clauses)
+        m2.metric(get_text('issues_found'), len(illegal_clauses))
+        m3.metric(get_text('total_violations'), total_violations)
+        
+        if not illegal_clauses:
+            st.success(get_text('no_violations'))
+        else:
+            st.warning(f"{get_text('violations_found')}: {total_violations}")
+            
+            # Render Violations
+            for i, clause in enumerate(illegal_clauses, 1):
+                with st.expander(f"🚩 Clause {i}", expanded=True):
+                    st.markdown(f"**{get_text('original_clause')}**")
+                    st.info(clause.get("text", ""))
+                    
+                    st.markdown(f"**{get_text('violation_details')}**")
+                    
+                    illegal_details = clause.get("illegal", {})
+                    for category, details in illegal_details.items():
+
+                    
+
+                        # Translate Category (e.g., 'salary' -> 'Gaji')
+                        cat_label = TRANSLATIONS[st.session_state.detected_language].get(category, category.title())
+                        
+                        #st.markdown(f"### {cat_label}")
+                        
+                        # Status
+                        status_key = f"status_{details.get('status', 'missing')}"
+                        st.markdown(f"**{get_text('status_label')}:** {get_text(status_key)}")
+                        
+                        # Reason
+                        if details.get('reason'):
+                            st.markdown(f"**{get_text('reason_label')}:** {details['reason']}")
+                            
+                        # Correction
+                        if details.get('corrected'):
+                            st.success(f"**{get_text('corrected_label')}:** {details['corrected']}")
+
+        # --- 4. GENERATE BUTTON ---
+        st.markdown("---")
+        with col2:
+            # Only enable if violations exist
+            if st.button(get_text('generate_btn'), type="secondary", use_container_width=True, disabled=not illegal_clauses):
+                with st.spinner(get_text('processing_gen')):
+                    # Call Generator
+                    st.session_state.full_corrected_text = generate_corrected_contract(
+                        st.session_state.current_contract_text,
+                        st.session_state.detected_language
+                    )
+
+    # --- 5. DOWNLOAD SECTION ---
+    if st.session_state.full_corrected_text:
+        st.markdown("---")
+        st.subheader(get_text('preview_title'))
+        
+        st.text_area("", st.session_state.full_corrected_text, height=300)
+        
+        # PDF Download Button
+        if st.button(get_text('confirm_pdf'), type="primary"):
+            with st.spinner(get_text('processing_pdf')):
+                pdf_data = create_pdf_from_markdown(st.session_state.full_corrected_text)
+                st.success(get_text('success_pdf'))
+                
+                st.download_button(
+                    label=get_text('download_btn'),
+                    data=pdf_data.getvalue(),
+                    file_name="Compliant_Contract.pdf",
+                    mime="application/pdf"
+                )
+
+else:
+    # Default Empty State
+    st.info("👆 " + get_text('upload_label'))
+    
+    # Info Expander
+    with st.expander("ℹ️ What does this tool validate?"):
+        st.markdown("""
+        **Checks compliance with:**
+        - Employment Act 1955
+        - Industrial Relations Act 1967
+        
+        **Key Areas:**
+        - ✅ Minimum wage (RM1,500)
+        - ✅ Working hours (Max 48h/week)
+        - ✅ Overtime rates
+        - ✅ Maternity/Paternity leave
+        - ✅ Notice periods
+        """)

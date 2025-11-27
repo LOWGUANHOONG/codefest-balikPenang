@@ -1,0 +1,2 @@
+API_KEY="jamai_pat_5df86aaacf1bb3b9a2a0918958e0f6c804ae8d8c355ffc5b"
+PROJECT_ID="proj_1fd3b5eca9b5590ce63c053e"
