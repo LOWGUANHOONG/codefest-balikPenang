@@ -56,3 +56,5 @@ Make sure you are in the app directory before running the command.
 cd app
 streamlit run "Labour Law QnA.py"
 ```
+
+### Done! A browser will be open and you can use our AI Assistant now.
