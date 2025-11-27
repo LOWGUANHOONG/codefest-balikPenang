@@ -4,14 +4,12 @@ import re
 from io import BytesIO
 import streamlit as st
 
-# --- Custom Imports ---
 # Ensure Python can find your subfolder
 sys.path.append(os.path.join(os.path.dirname(__file__), "contractChecker"))
 
 from contractChecker.pdf_parser import extract_text_from_pdf
 from contractChecker.law_checker import check_full_contract
 from contractChecker.generate_new_contract import generate_corrected_contract
-from contractChecker.financial_calculator import calculate_liability
 
 # --- PDF Generation Imports ---
 from reportlab.lib.pagesizes import A4
@@ -28,9 +26,10 @@ st.set_page_config(
 st.markdown("""
 <style>
     .stApp {
-        background-color: inherit;
+        background-color: #f8f9fa;
         font-family: 'Helvetica Neue', sans-serif;
     }
+    
     
     [data-testid="stSidebarNav"]::before {
         content: "Malaysian Labour Law Assistant";
@@ -77,15 +76,7 @@ st.markdown("""
 
 # --- Sidebar Setup ---
 with st.sidebar:
-    # 1. We must place SOMETHING here, but we hide it with CSS to clear the space.
-    # The actual title is injected using the CSS ::before pseudo-element above.
     st.empty() 
-    
-    # NOTE: The navigation links are AUTO-GENERATED and now appear immediately
-    # after the empty space, but the CSS places the title above them.
-
-    
-    # 3. Place the Legal Disclaimer at the bottom
     st.markdown("""
     <div class="disclaimer">
         ⚠️ DISCLAIMER: This tool is for informational purposes only and does not constitute legal advice. 
@@ -94,7 +85,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 
-# --- Helper: Language Detection (Local Logic for UI) ---
+
 def local_detect_language(text):
     """
     Simple detection to switch UI language immediately.
@@ -106,7 +97,6 @@ def local_detect_language(text):
     malay_count = sum(1 for word in malay_keywords if word in text_lower[:1000])
     return 'ms' if malay_count >= 3 else 'en'
 
-# --- Helper: PDF Generator (Robust) ---
 def create_pdf_from_markdown(markdown_text):
     buffer = BytesIO()
     doc = SimpleDocTemplate(
@@ -156,78 +146,6 @@ def create_pdf_from_markdown(markdown_text):
     doc.build(story)
     buffer.seek(0)
     return buffer
-
-# --- Helper: Financial Dashboard Renderer (Optimized Visuals) ---
-def render_financial_dashboard(contract_risk, employee_data):
-    if not contract_risk and not employee_data:
-        return
-
-    st.markdown("---")
-    st.subheader("💰 Financial Liability Analysis")
-
-    # 1. Employee Profile (Compact View)
-    if employee_data:
-        with st.container():
-            st.markdown("##### 👤 Extracted Employee Profile")
-            # Use columns with captions for a tighter look
-            c1, c2, c3, c4 = st.columns(4)
-            
-            # Extract Data
-            name = employee_data.get("employee_name", "Unknown")
-            pos = employee_data.get("position_title", "-")
-            start = employee_data.get("start_date") or "-"
-            
-            salary = employee_data.get("basic_salary_monthly")
-            try:
-                sal_str = f"RM {float(salary):,.2f}" if salary else "RM 0.00"
-            except:
-                sal_str = str(salary)
-
-            # Render Small Cells
-            with c1:
-                st.caption("Name")
-                st.markdown(f"**{name}**")
-            with c2:
-                st.caption("Position")
-                st.markdown(f"**{pos}**")
-            with c3:
-                st.caption("Base Salary")
-                st.markdown(f"**{sal_str}**")
-            with c4:
-                st.caption("Start Date")
-                st.markdown(f"**{start}**")
-
-    # 2. Top Level Liability Metrics
-    if contract_risk:
-        st.markdown("") # Spacer
-        try:
-            likely_total = float(contract_risk.get("total_likely_liability", 0.0))
-            worst_total = float(contract_risk.get("total_worst_case_liability", 0.0))
-        except:
-            likely_total, worst_total = 0.0, 0.0
-
-        k1, k2 = st.columns(2)
-        k1.metric("📉 Likely Liability (Compound)", f"RM {likely_total:,.2f}", "Settlement Risk", delta_color="inverse")
-        k2.metric("💥 Worst Case (Court Max)", f"RM {worst_total:,.2f}", "Max Penalty", delta_color="inverse")
-
-        # 3. Detailed Breakdown List
-        breakdown_list = contract_risk.get("breakdown", [])
-        if breakdown_list:
-            with st.expander("💸 View Liability Breakdown", expanded=True):
-                for item in breakdown_list:
-                    # Parse Item format: "⚠️ Type: RM X... | ⛓️ Jail: Z"
-                    parts = item.split("|")
-                    main_text = parts[0].strip()
-                    jail_text = parts[1].strip() if len(parts) > 1 else ""
-
-                    col_text, col_jail = st.columns([0.8, 0.2])
-                    col_text.markdown(f"**{main_text}**")
-                    
-                    if jail_text and "None" not in jail_text:
-                        col_jail.error(jail_text.replace("⛓️", "").strip())
-                    elif jail_text:
-                        col_jail.caption(jail_text)
-
 
 # --- UI Translations ---
 TRANSLATIONS = {
@@ -304,10 +222,6 @@ def get_text(key):
     """Retrieve translation for the current language."""
     return TRANSLATIONS[st.session_state.detected_language].get(key, key)
 
-# ========================================================
-# MAIN APPLICATION LOGIC
-# ========================================================
-
 st.title(get_text('title'))
 st.markdown(get_text('subtitle'))
 
@@ -315,7 +229,6 @@ uploaded_file = st.file_uploader(get_text('upload_label'), type=['pdf'])
 
 if uploaded_file is not None:
     # --- 1. AUTO-PROCESSING ON UPLOAD ---
-    # Only re-process if it's a NEW file
     if uploaded_file.file_id != st.session_state.file_key:
         st.session_state.file_key = uploaded_file.file_id
         st.session_state.checker_output = None
@@ -323,7 +236,6 @@ if uploaded_file is not None:
         
         # Extract Text
         raw_text = extract_text_from_pdf(uploaded_file)
-        # Clean Text (remove invisible chars)
         raw_text = re.sub(r'[\u200b\u200c\u200d\uFEFF]', '', raw_text)
         st.session_state.current_contract_text = raw_text
         
@@ -352,16 +264,13 @@ if uploaded_file is not None:
     if st.session_state.checker_output:
         st.markdown("---")
         st.subheader(get_text('report_title'))
-        
         report_data = st.session_state.checker_output
         
-        # Safe extraction of data (Handles Dictionary structure)
         if isinstance(report_data, dict):
             summary = report_data.get("summary", {})
             total_clauses = summary.get("total_clauses_found", 0)
             illegal_clauses = report_data.get("violations", [])
         else:
-            # Fallback if AI returned a List (Old format)
             total_clauses = len(report_data)
             illegal_clauses = report_data
             
@@ -374,15 +283,6 @@ if uploaded_file is not None:
         m2.metric(get_text('issues_found'), len(illegal_clauses))
         m3.metric(get_text('total_violations'), total_violations)
         
-        # --- Financial Impact Dashboard ---
-        contract_risk_data = report_data.get("contract_risk") or {}
-        employee_facts = report_data.get("employee_data") or {}
-        liability_summary = {}
-        if contract_risk_data:
-            liability_summary = calculate_liability(contract_risk_data, employee_facts)
-        if liability_summary or employee_facts:
-            render_financial_dashboard(liability_summary, employee_facts)
-
         if not illegal_clauses:
             st.success(get_text('no_violations'))
         else:
@@ -398,13 +298,8 @@ if uploaded_file is not None:
                     
                     illegal_details = clause.get("illegal", {})
                     for category, details in illegal_details.items():
-
-                    
-
-                        # Translate Category (e.g., 'salary' -> 'Gaji')
                         cat_label = TRANSLATIONS[st.session_state.detected_language].get(category, category.title())
-                        
-                        #st.markdown(f"### {cat_label}")
+                        st.markdown(f"### {cat_label}")
                         
                         # Status
                         status_key = f"status_{details.get('status', 'missing')}"

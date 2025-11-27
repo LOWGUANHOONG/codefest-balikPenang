@@ -20,7 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CSS for Clean Sidebar Navigation ---
+
 st.markdown("""
 <style>
     .stApp {
@@ -72,15 +72,8 @@ st.markdown("""
 
 # --- Sidebar Setup ---
 with st.sidebar:
-    # 1. We must place SOMETHING here, but we hide it with CSS to clear the space.
-    # The actual title is injected using the CSS ::before pseudo-element above.
     st.empty() 
-    
-    # NOTE: The navigation links are AUTO-GENERATED and now appear immediately
-    # after the empty space, but the CSS places the title above them.
 
-    
-    # 3. Place the Legal Disclaimer at the bottom
     st.markdown("""
     <div class="disclaimer">
         ⚠️ DISCLAIMER: This tool is for informational purposes only and does not constitute legal advice. 
@@ -126,7 +119,6 @@ if st.session_state.messages[-1]["role"] == "user":
     user_query = st.session_state.messages[-1]["content"]
     CHATBOT_ACTION_TABLE_ID = st.secrets["JAMAI_CHATBOT_ACTION_TABLE_ID"] # type: ignore
 
-    # Prepare history string
     history_text = st.session_state.conversation_history.strip()
 
     # ---- SEND to JamAI with History ----
@@ -145,7 +137,6 @@ if st.session_state.messages[-1]["role"] == "user":
         st.error(f"❌ JamAI API error: {e}")
         st.stop()
     
-    # Retrieve AI output from "Final"
     row = response.rows[0]
     ai_response_obj = row.columns.get("Final")
 
@@ -154,14 +145,11 @@ if st.session_state.messages[-1]["role"] == "user":
     else:
         ai_response_text = "⚠️ No response returned. Check JamAI column names."
 
-    # Convert \n to newlines
     ai_response_text = ai_response_text.replace("\\n", "\n")
 
-    # --- FIX: Keep indentation for sub-points ---
     def preserve_indentation(text: str):
         fixed_lines = []
         for line in text.split("\n"):
-            # Replace leading spaces with &nbsp;
             leading_spaces = len(line) - len(line.lstrip(" "))
             fixed_line = "&nbsp;" * leading_spaces + line.lstrip(" ")
             fixed_lines.append(fixed_line)
@@ -169,7 +157,6 @@ if st.session_state.messages[-1]["role"] == "user":
 
     safe_markdown = preserve_indentation(ai_response_text)
 
-    # --- Stream by line, but preserve formatting ---
     with chat_container:
         with st.chat_message("assistant"):
             msg_box = st.empty()
@@ -183,7 +170,6 @@ if st.session_state.messages[-1]["role"] == "user":
 
             msg_box.markdown(streamed_html, unsafe_allow_html=True)
 
-    # Save final answer to chat + history
     st.session_state.messages.append({
         "role": "assistant",
         "content": ai_response_text

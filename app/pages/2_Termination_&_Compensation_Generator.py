@@ -21,7 +21,6 @@ st.markdown("""
         background-color: inherit;
         font-family: 'Helvetica Neue', sans-serif;
     }
-    
 
     [data-testid="stSidebarNav"]::before {
         content: "Malaysian Labour Law Assistant";
@@ -67,15 +66,8 @@ st.markdown("""
 
 # --- Sidebar Setup ---
 with st.sidebar:
-    # 1. We must place SOMETHING here, but we hide it with CSS to clear the space.
-    # The actual title is injected using the CSS ::before pseudo-element above.
     st.empty() 
-    
-    # NOTE: The navigation links are AUTO-GENERATED and now appear immediately
-    # after the empty space, but the CSS places the title above them.
 
-    
-    # 3. Place the Legal Disclaimer at the bottom
     st.markdown("""
     <div class="disclaimer">
         ⚠️ DISCLAIMER: This tool is for informational purposes only and does not constitute legal advice. 
