@@ -17,18 +17,12 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Global Styles */
     .stApp {
         background-color: #f8f9fa;
         font-family: 'Helvetica Neue', sans-serif;
     }
     
-    
-    /* ------------------------------------------------------------- */
-    /* FIX: Custom Title Insertion & Repositioning */
-    /* ------------------------------------------------------------- */
-    
-    /* 1. Add the custom title via CSS content (Updated Content) */
+
     [data-testid="stSidebarNav"]::before {
         content: "Malaysian Labour Law Assistant";
         font-size: 1.5em; /* Matches h1 size */
@@ -38,7 +32,6 @@ st.markdown("""
         font-weight: bold;
     }
     
-    /* 2. Add a separator line after the title */
     [data-testid="stSidebarNav"]::after {
         content: "";
         display: block;
@@ -46,19 +39,15 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* 3. Hide the automatically generated title that we don't want */
     [data-testid="stSidebarNav"] > div:first-child > div:first-child {
         display: none;
     }
 
-    /* 4. FIX: Use visibility: hidden instead of collapsing height to fix UI disappearance */
-    /* This keeps the necessary container space but hides the placeholder content */
     [data-testid="stSidebar"] > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) {
         visibility: hidden;
         height: 0px; /* Still collapse height just in case, but rely on visibility */
     }
 
-    /* High-Contrast Disclaimer Styling */
     .disclaimer {
         background-color: #FFEE8C;
         padding: 15px;
@@ -76,7 +65,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# --- Sidebar Setup (Simplified and Cleaned) ---
+# --- Sidebar Setup ---
 with st.sidebar:
     # 1. We must place SOMETHING here, but we hide it with CSS to clear the space.
     # The actual title is injected using the CSS ::before pseudo-element above.
@@ -174,3 +163,4 @@ if uploaded_file:
                     )
                 else:
                     st.error(f"⚠️ Termination not allowed for {emp_name}: {result.get('legal_reasons_if_cannot', 'Check contract/law')}")
+
